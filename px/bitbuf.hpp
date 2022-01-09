@@ -6,7 +6,7 @@
 namespace px
 {
     /// <summary>
-    /// A compressed serialized storage of bits
+    /// A static/dynamic storage of bits
     /// </summary>
     template<typename _BitBuf_Traits>
     class bitbuf_t
