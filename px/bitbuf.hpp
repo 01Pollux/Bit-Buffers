@@ -339,13 +339,15 @@ namespace px
             requires (traits_type::is_read)
         {
             size_t left = read_get() % bits_per_block;
+            if (left)
+                left = bits_per_block - left;
             size_t offset = read_get() & (alignment * bits_per_block - bits_per_block);
             if (offset)
                 offset = alignment - offset;
 
             if (offset || left)
             {
-                read_set(read_get() + offset + bits_per_block - left);
+                read_set(read_get() + offset + left);
             }
         }
 
@@ -383,13 +385,15 @@ namespace px
             requires (traits_type::is_write)
         {
             size_t left = write_get() % bits_per_block;
+            if (left)
+                left = bits_per_block - left;
             size_t offset = write_get() & (alignment * bits_per_block - bits_per_block);
             if (offset)
                 offset = alignment - offset;
 
             if (offset || left)
             {
-                write_set(write_get() + offset + bits_per_block - left);
+                write_set(write_get() + offset + left);
             }
         }
 
