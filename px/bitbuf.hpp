@@ -83,14 +83,14 @@ namespace px
             }
             else if constexpr (std::is_integral_v<_Ty>)
             {
-                ensure_size(sizeof(_Ty) * bits_per_block);
+                ensure_size(sizeof(_Ty));
                 for (size_t i = 0; i < sizeof(_Ty) * bits_per_block; i++)
                     write_bit((data >> i) & 1 ? bit_type::one : bit_type::zero);
             }
             else if constexpr (std::is_floating_point_v<_Ty>)
             {
                 std::array bytes = std::bit_cast<std::array<unsigned char, sizeof(_Ty)>>(data);
-                ensure_size(sizeof(_Ty) * bits_per_block);
+                ensure_size(sizeof(_Ty));
                 for (uint8_t byte : bytes)
                 {
                     for (size_t i = 0; i < sizeof(uint8_t) * bits_per_block; i++)
@@ -116,7 +116,7 @@ namespace px
             )
             {
                 using value_type = _Ty::value_type;
-                ensure_size((data.size() + 1) * bits_per_block * sizeof(_Ty::value_type));
+                ensure_size((data.size() + 1) * sizeof(_Ty::value_type));
 
                 for (auto c : data)
                 {
