@@ -56,8 +56,7 @@ consteval /*constexpr*/ int64_t bits_combine(
 )
 {
     using px::bitbuf;
-    bitbuf buf;
-    buf.ensure_size(sizeof(int64_t));
+    bitbuf buf(sizeof(int64_t));
 
     for (auto bit : bits | std::views::reverse)
         buf << (bit == 1 ? px::bit_type::one : px::bit_type::zero);
