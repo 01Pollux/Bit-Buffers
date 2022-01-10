@@ -33,15 +33,15 @@ namespace px
                 m_Storage.resize(capacity);
         }
 
-        template<typename _Other_Traits>
-        constexpr bitbuf_t(const bitbuf_t<_Other_Traits>& buf) noexcept :
+        template<typename _OtherBuf_Traits>
+        constexpr bitbuf_t(const bitbuf_t<_OtherBuf_Traits>& buf) noexcept :
             m_Storage(buf.m_Storage),
             m_ReadPos(buf.m_ReadPos),
             m_WritePos(buf.m_WritePos)
         { }
 
-        template<typename _Other_Traits>
-        constexpr bitbuf_t& operator=(const bitbuf_t<_Other_Traits>& buf) noexcept
+        template<typename _OtherBuf_Traits>
+        constexpr bitbuf_t& operator=(const bitbuf_t<_OtherBuf_Traits>& buf) noexcept
         {
             if (this != &buf)
             {
@@ -52,15 +52,15 @@ namespace px
             return *this;
         }
 
-        template<typename _Other_Traits>
-        constexpr bitbuf_t(bitbuf_t<_Other_Traits>&& buf) noexcept :
+        template<typename _OtherBuf_Traits>
+        constexpr bitbuf_t(bitbuf_t<_OtherBuf_Traits>&& buf) noexcept :
             m_Storage(std::move(buf.m_Storage)),
             m_ReadPos(buf.m_ReadPos),
             m_WritePos(buf.m_WritePos)
         { }
 
-        template<typename _Other_Traits>
-        constexpr bitbuf_t& operator=(bitbuf_t<_Other_Traits>&& buf) noexcept
+        template<typename _OtherBuf_Traits>
+        constexpr bitbuf_t& operator=(bitbuf_t<_OtherBuf_Traits>&& buf) noexcept
         {
             if (this != &buf)
             {
@@ -83,14 +83,14 @@ namespace px
             }
             else if constexpr (std::is_integral_v<_Ty>)
             {
-                ensure_size(sizeof(_Ty));
+                ensure_size(sizeof(_Ty) * bits_per_block);
                 for (size_t i = 0; i < sizeof(_Ty) * bits_per_block; i++)
                     write_bit((data >> i) & 1 ? bit_type::one : bit_type::zero);
             }
             else if constexpr (std::is_floating_point_v<_Ty>)
             {
                 std::array bytes = std::bit_cast<std::array<unsigned char, sizeof(_Ty)>>(data);
-                ensure_size(sizeof(_Ty));
+                ensure_size(sizeof(_Ty) * bits_per_block);
                 for (uint8_t byte : bytes)
                 {
                     for (size_t i = 0; i < sizeof(uint8_t) * bits_per_block; i++)
@@ -116,7 +116,7 @@ namespace px
             )
             {
                 using value_type = _Ty::value_type;
-                ensure_size((data.size() + 1) * sizeof(_Ty::value_type));
+                ensure_size((data.size() + 1) * sizeof(_Ty::value_type) * bits_per_block);
 
                 for (auto c : data)
                 {
@@ -137,7 +137,17 @@ namespace px
             return *this;
         }
 
+        template<typename _OtherBuf_Traits>
+            requires (traits_type::is_write)
+        constexpr bitbuf_t& operator<<(const bitbuf_t<_OtherBuf_Traits>& data)
+        {
+            for (auto byte : data.m_Storage)
+                (*this) << byte;
+            return *this;
+        }
+
         template<typename _Ty>
+            requires (traits_type::is_write)
         constexpr void write(const _Ty& val)
         {
             (*this) << val;
@@ -153,6 +163,7 @@ namespace px
                 ++iter;
             }
         }
+
 
         template<typename _Ty>
             requires (traits_type::is_read)
@@ -248,7 +259,17 @@ namespace px
             return *this;
         }
 
+        template<typename _OtherBuf_Traits>
+            requires (traits_type::is_write)
+        constexpr const bitbuf_t& operator>>(bitbuf_t<_OtherBuf_Traits>& data)
+        {
+            for (auto byte : m_Storage)
+                data << byte;
+            return *this;
+        }
+
         template<typename _Ty>
+            requires (traits_type::is_read)
         constexpr _Ty read() const
         {
             _Ty tmp{ };
@@ -257,6 +278,7 @@ namespace px
         }
         
         template<typename _Ty>
+            requires (traits_type::is_read)
         constexpr _Ty read(size_t size) const
         {
             _Ty tmp{ };
@@ -347,17 +369,17 @@ namespace px
 
             if (offset || left)
             {
-                read_set(read_get() + offset + left);
+                read_set(read_get() + offset + bits_per_block - left);
             }
         }
 
-        constexpr bool read_is_aligned(size_t alignment) const noexcept
+        [[nodiscard]] constexpr bool read_is_aligned(size_t alignment) const noexcept
         {
             return !((read_get() % bits_per_block) || read_get() & (alignment * bits_per_block - bits_per_block));
         }
 
         template<typename _Ty>
-        constexpr bool can_read() const noexcept
+        [[nodiscard]] constexpr bool can_read() const noexcept
         {
             if constexpr (is_dynamic_block)
                 return true;
@@ -393,29 +415,35 @@ namespace px
 
             if (offset || left)
             {
-                write_set(write_get() + offset + left);
+                write_set(write_get() + offset + bits_per_block - left);
             }
         }
 
-        constexpr bool write_is_aligned(size_t alignment) const noexcept
+        [[nodiscard]] constexpr bool write_is_aligned(size_t alignment) const noexcept
         {
             return !((write_get() % bits_per_block) || write_get() & (alignment * bits_per_block - bits_per_block));
         }
 
         template<typename _Ty>
-        constexpr bool can_write() const noexcept
+        [[nodiscard]] constexpr bool can_write() const noexcept
         {
             if constexpr (is_dynamic_block)
                 return true;
             else return size() >= (write_get() + sizeof(_Ty));
         }
 
+        constexpr void shrink_to_fit()
+        {
+            m_Storage.shrink_to_fit();
+        }
+        
         constexpr void ensure_size(size_t bits_size)
+            requires (traits_type::is_write)
         {
             if constexpr (is_dynamic_block)
             {
-                if (const size_t count = write_get() + bits_size; m_Storage.capacity() * size_per_block <= count)
-                    m_Storage.resize(count);
+                if (const size_t count = write_get() + bits_size; size() * bits_per_block < count)
+                    m_Storage.resize((count % bits_per_block) + (count / bits_per_block));
             }
         }
 
@@ -451,9 +479,9 @@ namespace px
     //using bitbuf_iterator       = bitbuf_iterator_t<bitbuf>;
     using bitbuf_const_iterator = bitbuf_const_iterator_t<bitbuf>;
 
-    using ibitbuf_pmr    = bitbuf_t<bitbuf_default_traits<true, false>>;
-    using obitbuf_pmr    = bitbuf_t<bitbuf_default_traits<false, true>>;
-    using bitbuf_pmr     = bitbuf_t<bitbuf_default_traits<>>;
+    using ibitbuf_pmr    = bitbuf_t<bitbuf_default_pmr_traits<true, false>>;
+    using obitbuf_pmr    = bitbuf_t<bitbuf_default_pmr_traits<false, true>>;
+    using bitbuf_pmr     = bitbuf_t<bitbuf_default_pmr_traits<>>;
     
     //using bitbuf_pmr_iterator       = bitbuf_iterator_t<bitbuf>;
     using bitbuf_pmr_const_iterator = bitbuf_const_iterator_t<bitbuf>;

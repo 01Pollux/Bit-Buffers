@@ -5,7 +5,7 @@
 
 template<typename _Ty>
     requires (std::is_base_of_v<std::basic_ios<typename _Ty::char_type, typename _Ty::traits_type>, _Ty>)
-_Ty& operator<<(_Ty& os, px::bit_type bit)
+inline _Ty& operator<<(_Ty& os, px::bit_type bit)
 {
     os << (bit == px::bit_type::zero ? '0' : '1');
     return os;
@@ -13,7 +13,7 @@ _Ty& operator<<(_Ty& os, px::bit_type bit)
 
 template<typename _Ty>
     requires (std::is_base_of_v<std::basic_ios<typename _Ty::char_type, typename _Ty::traits_type>, _Ty>)
-_Ty& operator>>(_Ty& os, px::bit_type& outbit)
+inline _Ty& operator>>(_Ty& os, px::bit_type& outbit)
 {
     char bit;
     os >> bit;
